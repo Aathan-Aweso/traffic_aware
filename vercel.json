@@ -1,5 +1,3 @@
 {
-  "buildCommand": "",
-  "outputDirectory": "web",
-  "framework": null
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
 }

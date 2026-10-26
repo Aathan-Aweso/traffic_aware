@@ -1,0 +1,7 @@
+*.png
+*.ipynb
+doc/
+benchmark_results.csv
+summary.txt
+sustainable_vehicle_routing.csv
+test_traffic_astar.py

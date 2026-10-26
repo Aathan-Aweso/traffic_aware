@@ -1,38 +1,85 @@
-# Traffic-Aware Route Optimization (A*)
+# Traffic-Aware Route Planning using A* Search
 
-Compares **A\***, **Dijkstra**, **BFS** and **Greedy best-first** search on a 12 × 12 junction road network whose
-edge costs (travel time, fuel, CO₂) are learned from vehicle telemetry
-(`sustainable_vehicle_routing.csv`: GPS, speed, traffic density, road and weather conditions).
+AI mini project. Finds the minimum travel-time route between two road junctions with **A\***, using
+**Dijkstra** as the optimality baseline. Includes a reproducible synthetic dataset, a command-line evaluation, a Flask
+API and a browser interface. The full write-up is in `doc/Traffic_Aware_AStar_Project_Report.docx`.
 
-- `Traffic_route_optimization.ipynb`: the analysis, algorithms, benchmark and charts (`*.png`, `benchmark_results.csv`, `summary.txt`)
-- `web/`: static interactive frontend (deployed on Vercel)
-- `scripts/`: dataset generation, network export and a check that the JS port matches Python
+## Model
 
-## Web app
+- Road network: weighted, undirected graph. `data/nodes.csv` holds junction ids with x/y coordinates in km;
+  `data/edges.csv` holds road endpoints, `distance_km`, `traffic_factor` and a `blocked` flag.
+- Edge cost: `cost(e) = d / 60 × 60 × t = d × t` minutes (60 km/h reference speed), where
+  `t = traffic_factor × scenario multiplier ≥ 1`. Blocked roads are never inserted into the graph.
+- Heuristic: straight-line distance to the goal at 60 km/h. This is admissible and consistent as long as every road is
+  at least as long as the straight line between its junctions and `t ≥ 1`. The supplied data satisfies both.
 
-Pick a traffic scenario, click two junctions, and watch each algorithm search. Switch to **Block roads** to close
-roads and see A* re-route. A benchmark table (300 random trips per scenario, computed by the notebook) sits underneath.
+| Scenario  | Multiplier | Notes                       |
+|-----------|-----------:|-----------------------------|
+| night     | 1.0        |                             |
+| offpeak   | 1.25       |                             |
+| peak      | 2.0        |                             |
+| roadblock | 1.25       | B–E closed to test rerouting |
 
-The page is fully static: the notebook's `Network` is exported to `web/data.json`, and `web/algo.js` is a line-for-line
-port of `solve()` that runs in the browser.
-
-### Rebuild the data
-
-```bash
-pip install pandas numpy matplotlib
-python scripts/make_synthetic_dataset.py   # only if you don't have the real CSV
-python scripts/export_network.py           # -> web/data.json (+ scripts/reference_trips.json)
-node scripts/verify_js.js                  # JS results must match Python exactly
-```
-
-> The deployed demo uses a **synthetic** dataset (`scripts/make_synthetic_dataset.py`) with the same columns as the
-> original. Drop in the real `sustainable_vehicle_routing.csv` and re-run the export to use it.
-
-### Run locally / deploy
+## Run
 
 ```bash
-cd web && python3 -m http.server 8000      # http://localhost:8000
-npx vercel --prod                          # from the repo root; vercel.json serves web/
+pip install -r requirements.txt
+python traffic_astar.py        # A* vs Dijkstra table for every scenario + optimality assertion
+python -m unittest -v          # report section 5.2 test cases + API tests
+python app.py                  # http://127.0.0.1:5000
 ```
 
-Or import the GitHub repo in the Vercel dashboard. No build settings are needed; `vercel.json` handles them.
+On macOS, port 5000 is often taken by AirPlay Receiver. If it is, use `PORT=5001 python app.py`.
+
+In the browser, pick the start, destination, scenario and algorithm (or compare both), then click **Find Route**. You
+can also:
+
+- click junctions on the map to choose the start and destination
+- click roads to close or reopen them
+- replay the search step by step to see the order junctions were expanded
+- show h(n) on every junction
+- switch road labels between km and minutes
+- compare every scenario for the chosen trip in one table
+
+## API
+
+```http
+POST /api/route
+{"start": "A", "goal": "F", "scenario": "peak", "algorithm": "astar"}
+```
+
+`algorithm` is `astar` or `dijkstra`. The optional `"closed_roads": [["B", "E"]]` closes extra roads. The response
+includes `found`, `path`, `travel_time_min`, `nodes_expanded`, `expanded` (in expansion order) and `runtime_ms`. An unknown junction,
+scenario or algorithm returns **400** with an `error` message. A destination cut off by blocked roads returns
+`found: false`. `GET /api/graph` returns the junctions, roads and scenarios.
+
+## Results (demo trip A → F)
+
+| Scenario                  | Route     | Time (min) | A* expanded | Dijkstra expanded |
+|---------------------------|-----------|-----------:|------------:|------------------:|
+| Night                     | A-B-E-F   | 16.90      | 4           | 11                |
+| Off-peak                  | A-B-E-F   | 21.12      | 6           | 11                |
+| Peak                      | A-B-E-F   | 33.80      | 8           | 11                |
+| Road-block (B–E closed)   | A-C-G-I-F | 24.62      | 10          | 12                |
+
+A* and Dijkstra costs agree for all 132 start/goal pairs in every scenario. A* expands fewer nodes, but the gap
+narrows at peak: the heuristic assumes free-flow 60 km/h, so it becomes less informative as the multiplier grows.
+
+## Deploy (Vercel)
+
+`api/index.py` exposes the Flask app as a Python serverless function and `vercel.json` routes every path to it.
+Import the repo in Vercel and pick this branch, or run `npx vercel --prod`.
+
+## Structure
+
+```
+traffic_astar.py        load data -> build graph -> heuristic -> A* -> Dijkstra -> evaluation
+app.py                  Flask API + browser demo
+templates/index.html    browser interface
+data/nodes.csv          junctions (x/y km)
+data/edges.csv          roads (distance, traffic factor, blocked flag)
+test_traffic_astar.py   test cases from the report
+api/index.py            Vercel entry point
+doc/                    project report
+Traffic_route_optimization.ipynb, *.png, benchmark_results.csv, summary.txt   earlier dataset-driven analysis
+```
