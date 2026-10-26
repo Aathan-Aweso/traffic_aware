@@ -11,3 +11,4 @@ __pycache__/
 
 # notebook input (not shipped)
 sustainable_vehicle_routing.csv
+.env*

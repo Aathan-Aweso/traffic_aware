@@ -5,3 +5,7 @@ benchmark_results.csv
 summary.txt
 sustainable_vehicle_routing.csv
 test_traffic_astar.py
+.env*
+.vercel/
+__pycache__/
+web/
