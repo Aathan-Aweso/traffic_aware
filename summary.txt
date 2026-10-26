@@ -1,0 +1,6 @@
+
+================ KEY FINDINGS ================
+* A* is optimal in 100% of trips (same travel time as Dijkstra) but checks 57% fewer junctions.
+* BFS ignores traffic: its trips take 15.1% longer and emit 11.9% more CO2 than A*.
+* Greedy search is fast but optimal in only 30% of trips.
+* Demo trip (High traffic): 155.1 min; after a road block A* re-routes to 159.7 min (+4.5 min).

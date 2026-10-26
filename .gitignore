@@ -1,0 +1,12 @@
+# local tool state
+.claude-flow/
+.swarm/
+ruvector.db
+.vercel/
+.DS_Store
+__pycache__/
+.ipynb_checkpoints/
+
+# regenerable: python scripts/make_synthetic_dataset.py && python scripts/export_network.py
+sustainable_vehicle_routing.csv
+scripts/reference_trips.json
